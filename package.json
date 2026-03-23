@@ -1,13 +1,9 @@
 {
-  "name": "orpheus-ai-studio",
+  "name": "orpheus-github-site",
   "version": "1.0.0",
-  "description": "ORPHEUS - an OpenAI-powered creative studio for chat, images, websites, and games.",
+  "description": "ORPHEUS static GitHub Pages site",
   "type": "module",
-  "main": "src/server.js",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
-    "check": "node --check src/server.js",
     "test": "node --test"
   }
 }

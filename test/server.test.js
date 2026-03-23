@@ -3,16 +3,18 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
 
-const root = path.join(process.cwd());
+const root = process.cwd();
 
-test('public entrypoint exists', () => {
-  assert.equal(fs.existsSync(path.join(root, 'public', 'index.html')), true);
+test('github pages entry files exist', () => {
+  assert.equal(fs.existsSync(path.join(root, 'index.html')), true);
+  assert.equal(fs.existsSync(path.join(root, 'app.js')), true);
+  assert.equal(fs.existsSync(path.join(root, 'styles.css')), true);
 });
 
-test('server source references ORPHEUS routes and lore seed messages', () => {
-  const source = fs.readFileSync(path.join(root, 'src', 'server.js'), 'utf8');
-  assert.match(source, /\/api\/chat/);
-  assert.match(source, /\/api\/image/);
-  assert.match(source, /Welcome to ORPHEUS/);
-  assert.match(source, /Known commands: help, ls/);
+test('static app references GitHub Pages and local browser storage flow', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const js = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  assert.match(html, /GitHub Pages/);
+  assert.match(js, /localStorage/);
+  assert.match(js, /https:\/\/api\.openai\.com/);
 });

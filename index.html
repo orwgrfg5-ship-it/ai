@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ORPHEUS • Signal Interface</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <title>ORPHEUS • GitHub Access Point</title>
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="shell">
@@ -16,9 +16,9 @@
           <p class="signal">Do not trust everything you see. Do not trust everyone speaking. We are trying to reach you.</p>
         </div>
         <div class="hero-card">
-          <h2>System directives</h2>
-          <p>System rank is not assigned automatically.</p>
-          <p>To receive yours, initiate a private message with the official account.</p>
+          <h2>GitHub access point</h2>
+          <p>This version is a static website intended for GitHub Pages.</p>
+          <p>Your OpenAI API key is entered locally in the browser and stored only in your own browser storage.</p>
           <p class="muted-block">Known commands: <code>help</code>, <code>ls</code>, <code>cat [file]</code>, <code>unlock [file] [key]</code>, <code>override</code>. Some commands may not be listed. Some are not meant to be used.</p>
         </div>
       </header>
@@ -27,7 +27,21 @@
         <section class="panel controls">
           <div class="panel-header">
             <h2>Transmission console</h2>
-            <span id="statusBadge" class="badge">Checking signal…</span>
+            <span id="statusBadge" class="badge">Local-only configuration</span>
+          </div>
+
+          <label for="apiKey">OpenAI API key</label>
+          <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" />
+
+          <div class="settings-grid">
+            <div>
+              <label for="textModel">Text model</label>
+              <input id="textModel" type="text" value="gpt-4.1-mini" />
+            </div>
+            <div>
+              <label for="imageModel">Image model</label>
+              <input id="imageModel" type="text" value="gpt-image-1" />
+            </div>
           </div>
 
           <label for="mode">Transmission type</label>
@@ -39,27 +53,31 @@
           </select>
 
           <label for="prompt">Directive</label>
-          <textarea id="prompt" rows="9" placeholder="Example: Create an ORPHEUS warning message and a terminal-style landing page for new entrants."></textarea>
+          <textarea id="prompt" rows="9" placeholder="Example: Create an ORPHEUS warning page I can host on GitHub Pages."></textarea>
 
           <div class="preset-list">
             <button class="preset" data-prompt="Write an ORPHEUS welcome transmission for newly selected users.">Welcome transmission</button>
-            <button class="preset" data-prompt="Build a glitchy access point website for ORPHEUS with the tone 'You are not here by accident.'">Access point site</button>
+            <button class="preset" data-prompt="Build a glitchy ORPHEUS access point website that works as a single static HTML file for GitHub Pages.">GitHub site preset</button>
             <button class="preset" data-prompt="Create a browser puzzle game based on commands like help, ls, cat, unlock, and override.">Command puzzle</button>
           </div>
 
           <div class="button-row">
+            <button id="saveSettings">Save local settings</button>
+            <button id="clearSettings" class="secondary">Clear key</button>
+          </div>
+
+          <div class="button-row action-row">
             <button id="generateText">Transmit</button>
             <button id="generateImage" class="secondary">Render signal</button>
           </div>
 
-          <p class="helper">
-            Use the access point or puzzle modes to generate runnable HTML. If ORPHEUS returns an <strong>html</strong> block, it will appear in the web display immediately.
-          </p>
+          <p class="helper">This site is GitHub Pages-friendly: no backend, no local server, no secrets committed. Generated HTML is previewed in the iframe and can be copied into your repo.</p>
         </section>
 
         <section class="panel output">
           <div class="panel-header">
             <h2>Received output</h2>
+            <button id="copyOutput" class="ghost">Copy text</button>
           </div>
           <pre id="responseText">[Awaiting transmission]</pre>
         </section>
@@ -84,9 +102,6 @@
             <li>Stay immersive when possible</li>
             <li>Please don't go ahead without clues (promote command tinkering)</li>
           </ol>
-          <p>Breaking rules may result in removal.</p>
-          <p>This is your only warning.</p>
-          <p>But always remember: have fun.</p>
           <div class="bulletin">
             <p>[ORPHEUS OFFICIAL STATEMENT]</p>
             <p>ORPHEUS is live now. You are not here by accident. Some systems work. Some are... not. You are expected to move forward anyway.</p>
@@ -100,15 +115,10 @@
             <h2>Signal render</h2>
           </div>
           <div id="imageResult" class="image-result empty">Generated images will appear here.</div>
-          <div class="bulletin small">
-            <p>[ORPHEUS OFFICIAL STATEMENT]</p>
-            <p>The chat inside our program currently is not worldwide. We will work on it.</p>
-            <p>The ARG will be in an update soon. Sorry for any problems this may bring with your work.</p>
-          </div>
         </section>
       </main>
     </div>
 
-    <script src="/app.js" type="module"></script>
+    <script src="./app.js" type="module"></script>
   </body>
 </html>

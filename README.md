@@ -1,59 +1,39 @@
 # ORPHEUS
 
-ORPHEUS is a lightweight OpenAI-powered creative studio with an ARG-inspired transmission interface. It can:
+ORPHEUS is now a **static GitHub-friendly website** with an ARG-inspired transmission interface. It can:
 
 - make messages and written content
 - generate images
 - build websites
 - create mini browser games
 - render generated HTML in a built-in web display
+- run directly from GitHub Pages without a backend
 
-## Stack
+## How it works on GitHub
 
-- Node.js
-- Express
-- OpenAI API
-- Plain HTML/CSS/JavaScript frontend
+This version is designed for GitHub Pages or any static host:
 
-## Quick start
+- `index.html` is the entrypoint
+- `app.js` calls the OpenAI API directly from the browser
+- `styles.css` contains the full site styling
+- your OpenAI API key is entered in the UI and stored only in your browser `localStorage`
 
-1. Install dependencies:
+## Files
 
-   ```bash
-   npm install
-   ```
+- `index.html` — the ORPHEUS interface
+- `app.js` — client-side OpenAI calls, previews, settings storage, and command presets
+- `styles.css` — the signal/terminal UI styling
 
-2. Copy the environment template and add your OpenAI key:
+## GitHub Pages setup
 
-   ```bash
-   cp .env.example .env
-   ```
+1. Push this repository to GitHub.
+2. In your repository settings, enable **Pages**.
+3. Set the source to the repository root branch.
+4. Open the generated GitHub Pages URL.
+5. Enter your OpenAI API key in the site UI.
 
-3. Start the app:
+## Important note
 
-   ```bash
-   npm run dev
-   ```
+Because this is a static site, the OpenAI API key is used in the browser. That makes it convenient for personal prototypes on GitHub Pages, but it is **not appropriate for public production use with a shared secret**.
 
-4. Open `http://localhost:3000`.
-
-## Environment variables
-
-- `OPENAI_API_KEY`: required for chat and image generation.
-- `PORT`: optional, defaults to `3000`.
-- `OPENAI_TEXT_MODEL`: optional, defaults to `gpt-4.1-mini`.
-- `OPENAI_IMAGE_MODEL`: optional, defaults to `gpt-image-1`.
-
-## API routes
-
-- `GET /api/health` — returns app status and model configuration.
-- `POST /api/chat` — generates text and optionally runnable HTML.
-- `POST /api/image` — generates an image using the OpenAI image API.
-
-## Tone and message base
-
-The UI and generation prompt are now based on the provided ORPHEUS transmissions, official statements, rule lists, and command hints so generated content feels closer to an in-universe system interface.
-
-## How the web display works
-
-When ORPHEUS returns fenced `html` code in `/api/chat`, the frontend extracts it and renders it directly inside the preview iframe. That gives you a fast built-in display for generated websites, games, and prototypes.
+If you want to make ORPHEUS public for many users, the safer next step would be adding a backend proxy outside GitHub Pages.
