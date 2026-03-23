@@ -1,0 +1,9 @@
+{
+  "name": "orpheus-github-site",
+  "version": "1.0.0",
+  "description": "ORPHEUS static GitHub Pages site",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
