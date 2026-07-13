@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=Krita/PythonPlugin
+X-KDE-Library=krita_auto_color
+X-Python-2-Compatible=false
+Name=Manual Image Drawer Auto Color
+Comment=Listens for Manual Image Drawer color changes and updates Krita's foreground brush color.
