@@ -37,11 +37,14 @@ Electron Builder writes the portable `.exe` into `dist/`.
 
 The app includes a small Krita Python plugin in `krita-plugin/`. To let Manual Image Drawer automatically change Krita's foreground brush color:
 
-1. Copy `krita_auto_color.desktop` and `krita_auto_color.py` from `krita-plugin/` into Krita's `pykrita` plugin folder.
-2. Restart Krita.
-3. In Krita, enable **Manual Image Drawer Auto Color** from Python Plugin Manager if it is not already enabled.
-4. Open a Krita document and keep it active.
-5. In Manual Image Drawer, set **Color compatibility** to color passes and **Krita auto color** to on.
+1. Open Krita, then use **Settings → Manage Resources… → Open Resources Folder**.
+2. Create a `pykrita` folder there if it does not already exist.
+3. Copy `krita-plugin/krita_auto_color.desktop` into that `pykrita` folder.
+4. Copy the full `krita-plugin/krita_auto_color/` folder into that same `pykrita` folder. It must include `__init__.py` and `krita_auto_color.py`.
+5. Restart Krita.
+6. In Krita, enable **Manual Image Drawer Auto Color** from Python Plugin Manager if it is not already enabled.
+7. Open a Krita document and keep it active.
+8. In Manual Image Drawer, set **Color compatibility** to color passes and **Krita auto color** to on.
 
 The plugin listens only on `127.0.0.1:17491` by default and updates Krita's active view foreground color.
 

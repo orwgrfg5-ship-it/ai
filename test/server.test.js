@@ -61,8 +61,11 @@ test('package metadata can produce a portable Windows executable', () => {
 
 test('bundled Krita plugin can receive color changes', () => {
   const desktop = read('krita-plugin/krita_auto_color.desktop');
-  const plugin = read('krita-plugin/krita_auto_color.py');
+  const init = read('krita-plugin/krita_auto_color/__init__.py');
+  const plugin = read('krita-plugin/krita_auto_color/krita_auto_color.py');
   assert.match(desktop, /Krita\/PythonPlugin/);
+  assert.match(desktop, /X-KDE-Library=krita_auto_color/);
+  assert.match(init, /from \.krita_auto_color import \*/);
   assert.match(plugin, /setForeGroundColor/);
   assert.match(plugin, /QTcpServer/);
   assert.match(plugin, /17491/);
