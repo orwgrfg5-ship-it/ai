@@ -19,6 +19,8 @@ test('UI is focused on manual image drawing instead of the old site', () => {
   const html = read('index.html');
   assert.match(html, /Manual Image Drawer/);
   assert.match(html, /Select draw space/);
+  assert.match(html, /Stop drawing now/);
+  assert.match(html, /F8/);
   assert.doesNotMatch(html, /OpenAI API key/);
   assert.doesNotMatch(html, /ORPHEUS OFFICIAL STATEMENT/);
 });
@@ -35,6 +37,8 @@ test('Electron main process provides selection overlay and Windows mouse bridge'
   assert.match(main, /select-draw-area/);
   assert.match(main, /finish-area-selection/);
   assert.match(main, /draw-plan/);
+  assert.match(main, /stop-drawing/);
+  assert.match(main, /globalShortcut\.register\('F8'/);
   assert.match(main, /powershell\.exe/);
   assert.match(main, /user32\.dll/);
 });

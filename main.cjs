@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen } = require('electron');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -7,6 +7,8 @@ const path = require('node:path');
 let mainWindow;
 let selectionWindow;
 let selectionResolver;
+let currentDrawingChild = null;
+let stopRequested = false;
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -35,6 +37,16 @@ function closeSelectionWindow(area = null) {
     selectionWindow.close();
   }
   selectionWindow = null;
+}
+
+function stopActiveDrawing() {
+  if (!currentDrawingChild) return false;
+  stopRequested = true;
+  currentDrawingChild.kill();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('drawing-stopped');
+  }
+  return true;
 }
 
 function getSelectionOverlayHtml() {
@@ -88,9 +100,15 @@ function getSelectionOverlayHtml() {
 
 app.whenReady().then(() => {
   createMainWindow();
+  globalShortcut.register('F8', stopActiveDrawing);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+  stopActiveDrawing();
 });
 
 app.on('window-all-closed', () => {
@@ -158,6 +176,8 @@ foreach ($point in $points) {
 `;
 }
 
+ipcMain.handle('stop-drawing', () => ({ stopped: stopActiveDrawing() }));
+
 ipcMain.handle('draw-plan', async (_event, payload) => {
   if (process.platform !== 'win32') {
     throw new Error('Manual mouse drawing is only available on Windows.');
@@ -172,8 +192,11 @@ ipcMain.handle('draw-plan', async (_event, payload) => {
   fs.writeFileSync(jsonPath, JSON.stringify(points), 'utf8');
   fs.writeFileSync(scriptPath, buildPowerShellScript(jsonPath), 'utf8');
 
+  stopRequested = false;
+
   await new Promise((resolve, reject) => {
     const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], { windowsHide: true });
+    currentDrawingChild = child;
     let stderr = '';
     child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
     child.on('error', reject);
@@ -181,10 +204,14 @@ ipcMain.handle('draw-plan', async (_event, payload) => {
       for (const file of [jsonPath, scriptPath]) {
         try { fs.unlinkSync(file); } catch {}
       }
-      if (code === 0) resolve();
+      currentDrawingChild = null;
+      if (stopRequested) resolve();
+      else if (code === 0) resolve();
       else reject(new Error(stderr || `Drawing process exited with code ${code}`));
     });
   });
 
-  return { drawn: points.length };
+  const wasStopped = stopRequested;
+  stopRequested = false;
+  return { drawn: wasStopped ? 0 : points.length, stopped: wasStopped };
 });

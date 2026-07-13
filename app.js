@@ -7,6 +7,7 @@ const drawModeInput = document.getElementById('drawMode');
 const selectAreaButton = document.getElementById('selectArea');
 const startDrawingButton = document.getElementById('startDrawing');
 const exportPlanButton = document.getElementById('exportPlan');
+const stopDrawingButton = document.getElementById('stopDrawing');
 const statusBadge = document.getElementById('statusBadge');
 const imageDetails = document.getElementById('imageDetails');
 const areaDetails = document.getElementById('areaDetails');
@@ -190,10 +191,26 @@ startDrawingButton.addEventListener('click', async () => {
   setStatus(`Drawing ${currentPlan.length.toLocaleString()} dots`);
   try {
     const result = await window.manualDrawer.drawPlan({ points: currentPlan });
-    setStatus(`Finished ${result.drawn.toLocaleString()} dots`);
+    setStatus(result.stopped
+      ? `Stopped after sending ${result.drawn.toLocaleString()} dots`
+      : `Finished ${result.drawn.toLocaleString()} dots`);
   } catch (error) {
     setStatus(error.message);
   }
+});
+
+stopDrawingButton.addEventListener('click', async () => {
+  if (!window.manualDrawer?.stopDrawing) {
+    setStatus('Run with Electron to stop an active drawing job.');
+    return;
+  }
+
+  const result = await window.manualDrawer.stopDrawing();
+  setStatus(result.stopped ? 'Stop requested' : 'No drawing job is running');
+});
+
+window.manualDrawer?.onDrawingStopped?.(() => {
+  setStatus('Stopped by F8 emergency key');
 });
 
 exportPlanButton.addEventListener('click', () => {

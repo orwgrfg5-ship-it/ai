@@ -13,6 +13,7 @@ Manual Image Drawer lets you load an image, select a rectangular area anywhere o
 - Skips transparent and very light pixels to reduce extra mouse clicks.
 - Includes spacing, max-dot, light-cutoff, delay, and click/drag mode controls for compatibility.
 - Exports the generated dark-first drawing plan as JSON for debugging or reuse.
+- Stops an active drawing run with the global `F8` emergency hotkey or the in-app stop button.
 - Packages as a portable Windows `.exe` through Electron Builder.
 
 ## Run locally
@@ -35,4 +36,4 @@ Electron Builder writes the portable `.exe` into `dist/`.
 
 The app avoids native Node mouse-driver addons. On Windows it writes a temporary PowerShell script that uses the standard `user32.dll` mouse API, so the generated executable remains simple and broadly compatible with Windows 11 machines that allow regular mouse automation.
 
-Start with high spacing and a low maximum-dot count while testing. The app sends real mouse input, so keep the target drawing surface focused and do not touch the mouse until drawing finishes.
+Start with high spacing and a low maximum-dot count while testing. The app sends real mouse input, so keep the target drawing surface focused and do not touch the mouse until drawing finishes. If you need to stop a run, press `F8` or return to the app and click **Stop drawing now**.
