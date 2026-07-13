@@ -21,6 +21,8 @@ test('UI is focused on manual image drawing instead of the old site', () => {
   assert.match(html, /Select draw space/);
   assert.match(html, /Stop drawing now/);
   assert.match(html, /F8/);
+  assert.match(html, /Color compatibility/);
+  assert.match(html, /Continue color pass/);
   assert.doesNotMatch(html, /OpenAI API key/);
   assert.doesNotMatch(html, /ORPHEUS OFFICIAL STATEMENT/);
 });
@@ -28,7 +30,9 @@ test('UI is focused on manual image drawing instead of the old site', () => {
 test('draw planner sorts darker pixels first and supports export', () => {
   const js = read('app.js');
   assert.match(js, /function buildDrawingPlan/);
-  assert.match(js, /sort\(\(first, second\) => first\.shade - second\.shade\)/);
+  assert.match(js, /first\.shade - second\.shade/);
+  assert.match(js, /function buildColorPasses/);
+  assert.match(js, /quantizeColor/);
   assert.match(js, /manual-image-drawer-plan\.json/);
 });
 
@@ -39,6 +43,7 @@ test('Electron main process provides selection overlay and Windows mouse bridge'
   assert.match(main, /draw-plan/);
   assert.match(main, /stop-drawing/);
   assert.match(main, /globalShortcut\.register\('F8'/);
+  assert.match(main, /globalShortcut\.register\('F7'/);
   assert.match(main, /powershell\.exe/);
   assert.match(main, /user32\.dll/);
 });

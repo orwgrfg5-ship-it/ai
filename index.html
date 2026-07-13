@@ -54,12 +54,27 @@
             <option value="drag">Faster: short drag strokes</option>
           </select>
 
+          <div class="field-grid">
+            <label>
+              Color compatibility
+              <select id="colorMode">
+                <option value="single">Single current brush color</option>
+                <option value="passes">Color passes: pause per color</option>
+              </select>
+            </label>
+            <label>
+              Palette levels
+              <input id="paletteLevels" type="number" min="2" max="12" value="6" />
+            </label>
+          </div>
+
           <div class="button-row">
             <button type="button" id="selectArea">Select draw space</button>
             <button type="button" id="startDrawing" class="danger">Start drawing</button>
           </div>
 
           <button type="button" id="stopDrawing" class="stop">Stop drawing now</button>
+          <button type="button" id="continueColor" class="secondary">Continue color pass (F7)</button>
           <button type="button" id="exportPlan" class="secondary">Export dark-first plan JSON</button>
 
           <p class="note"><strong>Emergency stop:</strong> press <kbd>F8</kbd> at any time while the app is running, or click Stop drawing now. The app uses normal mouse input, so keep the target drawing surface focused and do not move the mouse unless you are stopping it.</p>
@@ -75,6 +90,7 @@
             <p id="imageDetails">No image loaded.</p>
             <p id="areaDetails">No draw space selected.</p>
             <p id="planDetails">No drawing plan generated.</p>
+            <p id="colorDetails">Color compatibility is in single-brush mode.</p>
           </div>
         </section>
       </section>

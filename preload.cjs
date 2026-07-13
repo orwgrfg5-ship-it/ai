@@ -8,6 +8,10 @@ contextBridge.exposeInMainWorld('manualDrawer', {
     ipcRenderer.removeAllListeners('drawing-stopped');
     ipcRenderer.on('drawing-stopped', () => callback());
   },
+  onColorContinue: (callback) => {
+    ipcRenderer.removeAllListeners('drawing-continue');
+    ipcRenderer.on('drawing-continue', () => callback());
+  },
   finishAreaSelection: (area) => ipcRenderer.send('finish-area-selection', area),
   platform: process.platform
 });

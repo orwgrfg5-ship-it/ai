@@ -4,14 +4,18 @@ const maxDotsInput = document.getElementById('maxDots');
 const lightCutoffInput = document.getElementById('lightCutoff');
 const dotDelayInput = document.getElementById('dotDelay');
 const drawModeInput = document.getElementById('drawMode');
+const colorModeInput = document.getElementById('colorMode');
+const paletteLevelsInput = document.getElementById('paletteLevels');
 const selectAreaButton = document.getElementById('selectArea');
 const startDrawingButton = document.getElementById('startDrawing');
 const exportPlanButton = document.getElementById('exportPlan');
 const stopDrawingButton = document.getElementById('stopDrawing');
+const continueColorButton = document.getElementById('continueColor');
 const statusBadge = document.getElementById('statusBadge');
 const imageDetails = document.getElementById('imageDetails');
 const areaDetails = document.getElementById('areaDetails');
 const planDetails = document.getElementById('planDetails');
+const colorDetails = document.getElementById('colorDetails');
 const previewCanvas = document.getElementById('previewCanvas');
 const previewContext = previewCanvas.getContext('2d', { willReadFrequently: true });
 
@@ -19,6 +23,7 @@ let sourceImage = null;
 let sourceImageUrl = null;
 let drawArea = null;
 let currentPlan = [];
+let continueColorResolver = null;
 
 function setStatus(message) {
   statusBadge.textContent = message;
@@ -36,12 +41,36 @@ function getSettings() {
     maxDots: numericValue(maxDotsInput, 5000, 10, 60000),
     lightCutoff: numericValue(lightCutoffInput, 245, 0, 255),
     dotDelay: numericValue(dotDelayInput, 1, 0, 100),
-    mode: drawModeInput.value === 'drag' ? 'drag' : 'click'
+    mode: drawModeInput.value === 'drag' ? 'drag' : 'click',
+    colorMode: colorModeInput.value === 'passes' ? 'passes' : 'single',
+    paletteLevels: numericValue(paletteLevelsInput, 6, 2, 12)
   };
 }
 
 function luminance(red, green, blue) {
   return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+}
+
+function quantizeChannel(value, levels) {
+  if (levels <= 2) return value < 128 ? 0 : 255;
+  const step = 255 / (levels - 1);
+  return Math.round(Math.round(value / step) * step);
+}
+
+function quantizeColor(red, green, blue, levels) {
+  return {
+    red: quantizeChannel(red, levels),
+    green: quantizeChannel(green, levels),
+    blue: quantizeChannel(blue, levels)
+  };
+}
+
+function colorKey(color) {
+  return `${color.red},${color.green},${color.blue}`;
+}
+
+function colorCss(color) {
+  return `rgb(${color.red}, ${color.green}, ${color.blue})`;
 }
 
 function drawEmptyPreview() {
@@ -103,28 +132,51 @@ function buildDrawingPlan() {
       const shade = luminance(red, green, blue);
       if (shade >= settings.lightCutoff) continue;
 
+      const compatibleColor = settings.colorMode === 'passes'
+        ? quantizeColor(red, green, blue, settings.paletteLevels)
+        : { red, green, blue };
       plan.push({
         x: drawArea.x + Math.round((x + 0.5) * settings.spacing),
         y: drawArea.y + Math.round((y + 0.5) * settings.spacing),
         delay: settings.dotDelay,
         mode: settings.mode,
         shade,
-        color: { red, green, blue, alpha }
+        color: { ...compatibleColor, alpha },
+        colorKey: colorKey(compatibleColor)
       });
     }
   }
 
   return plan
-    .sort((first, second) => first.shade - second.shade)
+    .sort((first, second) => first.shade - second.shade || first.colorKey.localeCompare(second.colorKey))
     .slice(0, settings.maxDots)
-    .map(({ x, y, delay, mode, color }) => ({ x, y, delay, mode, color }));
+    .map(({ x, y, delay, mode, color, colorKey: key }) => ({ x, y, delay, mode, color, colorKey: key }));
+}
+
+function buildColorPasses(plan) {
+  const passes = new Map();
+  for (const point of plan) {
+    const key = point.colorKey || 'single';
+    if (!passes.has(key)) passes.set(key, { color: point.color, points: [] });
+    passes.get(key).points.push(point);
+  }
+  return [...passes.values()].sort((first, second) => {
+    const firstShade = luminance(first.color.red, first.color.green, first.color.blue);
+    const secondShade = luminance(second.color.red, second.color.green, second.color.blue);
+    return firstShade - secondShade;
+  });
 }
 
 function refreshPlanDetails() {
   currentPlan = buildDrawingPlan();
+  const settings = getSettings();
+  const passes = settings.colorMode === 'passes' ? buildColorPasses(currentPlan) : [];
   planDetails.textContent = currentPlan.length
     ? `${currentPlan.length.toLocaleString()} dots planned, sorted darkest to lightest.`
     : 'No drawing plan generated.';
+  colorDetails.textContent = settings.colorMode === 'passes'
+    ? `${passes.length.toLocaleString()} color passes planned. The app pauses before each color so you can set the brush, then press F7.`
+    : 'Color compatibility is in single-brush mode.';
 }
 
 async function loadImageFile(file) {
@@ -153,7 +205,7 @@ imageInput.addEventListener('change', async () => {
   }
 });
 
-for (const input of [spacingInput, maxDotsInput, lightCutoffInput, dotDelayInput, drawModeInput]) {
+for (const input of [spacingInput, maxDotsInput, lightCutoffInput, dotDelayInput, drawModeInput, colorModeInput, paletteLevelsInput]) {
   input.addEventListener('input', refreshPlanDetails);
 }
 
@@ -176,6 +228,19 @@ selectAreaButton.addEventListener('click', async () => {
   refreshPlanDetails();
 });
 
+function waitForColorContinue() {
+  return new Promise((resolve) => {
+    continueColorResolver = resolve;
+  });
+}
+
+function continueColorPass() {
+  if (!continueColorResolver) return false;
+  continueColorResolver();
+  continueColorResolver = null;
+  return true;
+}
+
 startDrawingButton.addEventListener('click', async () => {
   if (!window.manualDrawer?.drawPlan) {
     setStatus('Run with Electron to control the mouse.');
@@ -188,8 +253,27 @@ startDrawingButton.addEventListener('click', async () => {
     return;
   }
 
-  setStatus(`Drawing ${currentPlan.length.toLocaleString()} dots`);
+  const settings = getSettings();
   try {
+    if (settings.colorMode === 'passes') {
+      const passes = buildColorPasses(currentPlan);
+      for (let index = 0; index < passes.length; index += 1) {
+        const pass = passes[index];
+        colorDetails.innerHTML = `Set brush color to <span class=\"swatch\" style=\"background:${colorCss(pass.color)}\"></span> ${colorCss(pass.color)} for pass ${index + 1}/${passes.length}, then press F7 or Continue.`;
+        setStatus(`Waiting for color pass ${index + 1}/${passes.length}`);
+        await waitForColorContinue();
+        setStatus(`Drawing color pass ${index + 1}/${passes.length}`);
+        const result = await window.manualDrawer.drawPlan({ points: pass.points });
+        if (result.stopped) {
+          setStatus('Stopped during color drawing');
+          return;
+        }
+      }
+      setStatus('Finished all color passes');
+      return;
+    }
+
+    setStatus(`Drawing ${currentPlan.length.toLocaleString()} dots`);
     const result = await window.manualDrawer.drawPlan({ points: currentPlan });
     setStatus(result.stopped
       ? `Stopped after sending ${result.drawn.toLocaleString()} dots`
@@ -197,6 +281,10 @@ startDrawingButton.addEventListener('click', async () => {
   } catch (error) {
     setStatus(error.message);
   }
+});
+
+continueColorButton.addEventListener('click', () => {
+  if (!continueColorPass()) setStatus('No color pass is waiting');
 });
 
 stopDrawingButton.addEventListener('click', async () => {
@@ -211,6 +299,10 @@ stopDrawingButton.addEventListener('click', async () => {
 
 window.manualDrawer?.onDrawingStopped?.(() => {
   setStatus('Stopped by F8 emergency key');
+});
+
+window.manualDrawer?.onColorContinue?.(() => {
+  if (!continueColorPass()) setStatus('F7 received, but no color pass is waiting');
 });
 
 exportPlanButton.addEventListener('click', () => {

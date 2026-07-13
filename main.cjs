@@ -39,6 +39,12 @@ function closeSelectionWindow(area = null) {
   selectionWindow = null;
 }
 
+function sendColorContinue() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('drawing-continue');
+  }
+}
+
 function stopActiveDrawing() {
   if (!currentDrawingChild) return false;
   stopRequested = true;
@@ -101,6 +107,7 @@ function getSelectionOverlayHtml() {
 app.whenReady().then(() => {
   createMainWindow();
   globalShortcut.register('F8', stopActiveDrawing);
+  globalShortcut.register('F7', sendColorContinue);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });
