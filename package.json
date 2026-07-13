@@ -22,7 +22,8 @@
       "styles.css",
       "main.cjs",
       "preload.cjs",
-      "README.md"
+      "README.md",
+      "krita-plugin/**/*"
     ],
     "win": {
       "target": [

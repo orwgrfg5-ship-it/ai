@@ -2,6 +2,7 @@ const { app, BrowserWindow, globalShortcut, ipcMain, screen } = require('electro
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
+const net = require('node:net');
 const path = require('node:path');
 
 let mainWindow;
@@ -184,6 +185,42 @@ foreach ($point in $points) {
 }
 
 ipcMain.handle('stop-drawing', () => ({ stopped: stopActiveDrawing() }));
+
+ipcMain.handle('set-krita-color', async (_event, payload) => {
+  const color = payload?.color || {};
+  const port = Math.max(1024, Math.min(65535, Math.round(Number(payload?.port) || 17491)));
+  const message = `${JSON.stringify({
+    red: Math.max(0, Math.min(255, Math.round(Number(color.red) || 0))),
+    green: Math.max(0, Math.min(255, Math.round(Number(color.green) || 0))),
+    blue: Math.max(0, Math.min(255, Math.round(Number(color.blue) || 0)))
+  })}\n`;
+
+  await new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: '127.0.0.1', port }, () => socket.write(message));
+    socket.setTimeout(2000);
+    let response = '';
+    socket.on('data', (chunk) => {
+      response += chunk.toString();
+      if (response.includes('\n')) {
+        socket.end();
+        const line = response.split('\n')[0];
+        try {
+          const parsed = JSON.parse(line);
+          parsed.ok ? resolve() : reject(new Error(parsed.error || 'Krita rejected the color change.'));
+        } catch {
+          reject(new Error('Krita color plugin returned an invalid response.'));
+        }
+      }
+    });
+    socket.on('timeout', () => {
+      socket.destroy();
+      reject(new Error('Timed out connecting to the Krita auto-color plugin.'));
+    });
+    socket.on('error', () => reject(new Error('Could not connect to the Krita auto-color plugin. Install and enable the bundled Krita plugin first.')));
+  });
+
+  return { ok: true };
+});
 
 ipcMain.handle('draw-plan', async (_event, payload) => {
   if (process.platform !== 'win32') {

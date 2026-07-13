@@ -6,11 +6,14 @@ const dotDelayInput = document.getElementById('dotDelay');
 const drawModeInput = document.getElementById('drawMode');
 const colorModeInput = document.getElementById('colorMode');
 const paletteLevelsInput = document.getElementById('paletteLevels');
+const kritaColorModeInput = document.getElementById('kritaColorMode');
+const kritaPortInput = document.getElementById('kritaPort');
 const selectAreaButton = document.getElementById('selectArea');
 const startDrawingButton = document.getElementById('startDrawing');
 const exportPlanButton = document.getElementById('exportPlan');
 const stopDrawingButton = document.getElementById('stopDrawing');
 const continueColorButton = document.getElementById('continueColor');
+const testKritaColorButton = document.getElementById('testKritaColor');
 const statusBadge = document.getElementById('statusBadge');
 const imageDetails = document.getElementById('imageDetails');
 const areaDetails = document.getElementById('areaDetails');
@@ -43,7 +46,9 @@ function getSettings() {
     dotDelay: numericValue(dotDelayInput, 1, 0, 100),
     mode: drawModeInput.value === 'drag' ? 'drag' : 'click',
     colorMode: colorModeInput.value === 'passes' ? 'passes' : 'single',
-    paletteLevels: numericValue(paletteLevelsInput, 6, 2, 12)
+    paletteLevels: numericValue(paletteLevelsInput, 6, 2, 12),
+    kritaAutoColor: kritaColorModeInput.value === 'auto',
+    kritaPort: numericValue(kritaPortInput, 17491, 1024, 65535)
   };
 }
 
@@ -175,7 +180,7 @@ function refreshPlanDetails() {
     ? `${currentPlan.length.toLocaleString()} dots planned, sorted darkest to lightest.`
     : 'No drawing plan generated.';
   colorDetails.textContent = settings.colorMode === 'passes'
-    ? `${passes.length.toLocaleString()} color passes planned. The app pauses before each color so you can set the brush, then press F7.`
+    ? `${passes.length.toLocaleString()} color passes planned. ${settings.kritaAutoColor ? 'Krita auto color is on, so brush colors are sent to the plugin automatically.' : 'The app pauses before each color so you can set the brush, then press F7.'}`
     : 'Color compatibility is in single-brush mode.';
 }
 
@@ -205,7 +210,7 @@ imageInput.addEventListener('change', async () => {
   }
 });
 
-for (const input of [spacingInput, maxDotsInput, lightCutoffInput, dotDelayInput, drawModeInput, colorModeInput, paletteLevelsInput]) {
+for (const input of [spacingInput, maxDotsInput, lightCutoffInput, dotDelayInput, drawModeInput, colorModeInput, paletteLevelsInput, kritaColorModeInput, kritaPortInput]) {
   input.addEventListener('input', refreshPlanDetails);
 }
 
@@ -259,9 +264,14 @@ startDrawingButton.addEventListener('click', async () => {
       const passes = buildColorPasses(currentPlan);
       for (let index = 0; index < passes.length; index += 1) {
         const pass = passes[index];
-        colorDetails.innerHTML = `Set brush color to <span class=\"swatch\" style=\"background:${colorCss(pass.color)}\"></span> ${colorCss(pass.color)} for pass ${index + 1}/${passes.length}, then press F7 or Continue.`;
-        setStatus(`Waiting for color pass ${index + 1}/${passes.length}`);
-        await waitForColorContinue();
+        colorDetails.innerHTML = `Set brush color to <span class=\"swatch\" style=\"background:${colorCss(pass.color)}\"></span> ${colorCss(pass.color)} for pass ${index + 1}/${passes.length}.`;
+        if (settings.kritaAutoColor) {
+          setStatus(`Sending Krita color ${index + 1}/${passes.length}`);
+          await window.manualDrawer.setKritaColor({ color: pass.color, port: settings.kritaPort });
+        } else {
+          setStatus(`Waiting for color pass ${index + 1}/${passes.length}`);
+          await waitForColorContinue();
+        }
         setStatus(`Drawing color pass ${index + 1}/${passes.length}`);
         const result = await window.manualDrawer.drawPlan({ points: pass.points });
         if (result.stopped) {
@@ -278,6 +288,20 @@ startDrawingButton.addEventListener('click', async () => {
     setStatus(result.stopped
       ? `Stopped after sending ${result.drawn.toLocaleString()} dots`
       : `Finished ${result.drawn.toLocaleString()} dots`);
+  } catch (error) {
+    setStatus(error.message);
+  }
+});
+
+testKritaColorButton.addEventListener('click', async () => {
+  if (!window.manualDrawer?.setKritaColor) {
+    setStatus('Run with Electron to test Krita auto color.');
+    return;
+  }
+  const settings = getSettings();
+  try {
+    await window.manualDrawer.setKritaColor({ color: { red: 255, green: 0, blue: 0 }, port: settings.kritaPort });
+    setStatus('Krita auto color test sent red');
   } catch (error) {
     setStatus(error.message);
   }

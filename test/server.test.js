@@ -23,6 +23,7 @@ test('UI is focused on manual image drawing instead of the old site', () => {
   assert.match(html, /F8/);
   assert.match(html, /Color compatibility/);
   assert.match(html, /Continue color pass/);
+  assert.match(html, /Krita auto color/);
   assert.doesNotMatch(html, /OpenAI API key/);
   assert.doesNotMatch(html, /ORPHEUS OFFICIAL STATEMENT/);
 });
@@ -33,6 +34,7 @@ test('draw planner sorts darker pixels first and supports export', () => {
   assert.match(js, /first\.shade - second\.shade/);
   assert.match(js, /function buildColorPasses/);
   assert.match(js, /quantizeColor/);
+  assert.match(js, /setKritaColor/);
   assert.match(js, /manual-image-drawer-plan\.json/);
 });
 
@@ -46,6 +48,7 @@ test('Electron main process provides selection overlay and Windows mouse bridge'
   assert.match(main, /globalShortcut\.register\('F7'/);
   assert.match(main, /powershell\.exe/);
   assert.match(main, /user32\.dll/);
+  assert.match(main, /set-krita-color/);
 });
 
 test('package metadata can produce a portable Windows executable', () => {
@@ -54,4 +57,13 @@ test('package metadata can produce a portable Windows executable', () => {
   assert.equal(pkg.scripts.start, 'electron .');
   assert.equal(pkg.scripts['build:win'], 'electron-builder --win portable --x64');
   assert.deepEqual(pkg.build.win.target, ['portable']);
+});
+
+test('bundled Krita plugin can receive color changes', () => {
+  const desktop = read('krita-plugin/krita_auto_color.desktop');
+  const plugin = read('krita-plugin/krita_auto_color.py');
+  assert.match(desktop, /Krita\/PythonPlugin/);
+  assert.match(plugin, /setForeGroundColor/);
+  assert.match(plugin, /QTcpServer/);
+  assert.match(plugin, /17491/);
 });
