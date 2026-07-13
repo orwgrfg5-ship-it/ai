@@ -1,9 +1,33 @@
 {
-  "name": "orpheus-github-site",
+  "name": "manual-image-drawer-windows",
   "version": "1.0.0",
-  "description": "ORPHEUS static GitHub Pages site",
+  "description": "A Windows 11 desktop app that manually draws an imported image inside a selected screen area with darker pixels first.",
   "type": "module",
+  "main": "main.cjs",
   "scripts": {
-    "test": "node --test"
+    "start": "electron .",
+    "test": "node --test",
+    "build:win": "electron-builder --win portable --x64"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.manualimagedrawer.windows",
+    "productName": "Manual Image Drawer",
+    "files": [
+      "index.html",
+      "app.js",
+      "styles.css",
+      "main.cjs",
+      "preload.cjs",
+      "README.md"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
   }
 }

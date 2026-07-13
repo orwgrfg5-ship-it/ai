@@ -1,39 +1,38 @@
-# ORPHEUS
+# Manual Image Drawer for Windows 11
 
-ORPHEUS is now a **static GitHub-friendly website** with an ARG-inspired transmission interface. It can:
+This branch intentionally replaces the previous ORPHEUS/static-site work with a focused Windows desktop app.
 
-- make messages and written content
-- generate images
-- build websites
-- create mini browser games
-- render generated HTML in a built-in web display
-- run directly from GitHub Pages without a backend
+Manual Image Drawer lets you load an image, select a rectangular area anywhere on your Windows screen, and then manually reproduce the image by sending normal mouse clicks into that selected area. The generated plan sorts sampled pixels from darkest to lightest first.
 
-## How it works on GitHub
+## Features
 
-This version is designed for GitHub Pages or any static host:
+- Imports any image format supported by Chromium/Electron.
+- Provides a full-screen transparent overlay so you can drag a box around the exact draw space.
+- Samples the loaded image to fit the selected area.
+- Draws darker pixels first by sorting points by luminance.
+- Skips transparent and very light pixels to reduce extra mouse clicks.
+- Includes spacing, max-dot, light-cutoff, delay, and click/drag mode controls for compatibility.
+- Exports the generated dark-first drawing plan as JSON for debugging or reuse.
+- Packages as a portable Windows `.exe` through Electron Builder.
 
-- `index.html` is the entrypoint
-- `app.js` calls the OpenAI API directly from the browser
-- `styles.css` contains the full site styling
-- your OpenAI API key is entered in the UI and stored only in your browser `localStorage`
+## Run locally
 
-## Files
+```bash
+npm install
+npm start
+```
 
-- `index.html` — the ORPHEUS interface
-- `app.js` — client-side OpenAI calls, previews, settings storage, and command presets
-- `styles.css` — the signal/terminal UI styling
+## Build the Windows executable
 
-## GitHub Pages setup
+```bash
+npm install
+npm run build:win
+```
 
-1. Push this repository to GitHub.
-2. In your repository settings, enable **Pages**.
-3. Set the source to the repository root branch.
-4. Open the generated GitHub Pages URL.
-5. Enter your OpenAI API key in the site UI.
+Electron Builder writes the portable `.exe` into `dist/`.
 
-## Important note
+## Compatibility notes
 
-Because this is a static site, the OpenAI API key is used in the browser. That makes it convenient for personal prototypes on GitHub Pages, but it is **not appropriate for public production use with a shared secret**.
+The app avoids native Node mouse-driver addons. On Windows it writes a temporary PowerShell script that uses the standard `user32.dll` mouse API, so the generated executable remains simple and broadly compatible with Windows 11 machines that allow regular mouse automation.
 
-If you want to make ORPHEUS public for many users, the safer next step would be adding a backend proxy outside GitHub Pages.
+Start with high spacing and a low maximum-dot count while testing. The app sends real mouse input, so keep the target drawing surface focused and do not touch the mouse until drawing finishes.

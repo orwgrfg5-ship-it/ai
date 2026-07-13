@@ -1,187 +1,209 @@
-const STORAGE_KEY = 'orpheus-github-settings';
-const modeEl = document.getElementById('mode');
-const apiKeyEl = document.getElementById('apiKey');
-const textModelEl = document.getElementById('textModel');
-const imageModelEl = document.getElementById('imageModel');
-const promptEl = document.getElementById('prompt');
-const responseTextEl = document.getElementById('responseText');
-const imageResultEl = document.getElementById('imageResult');
-const statusBadgeEl = document.getElementById('statusBadge');
-const previewFrameEl = document.getElementById('previewFrame');
-const presetEls = document.querySelectorAll('.preset');
+const imageInput = document.getElementById('imageInput');
+const spacingInput = document.getElementById('spacing');
+const maxDotsInput = document.getElementById('maxDots');
+const lightCutoffInput = document.getElementById('lightCutoff');
+const dotDelayInput = document.getElementById('dotDelay');
+const drawModeInput = document.getElementById('drawMode');
+const selectAreaButton = document.getElementById('selectArea');
+const startDrawingButton = document.getElementById('startDrawing');
+const exportPlanButton = document.getElementById('exportPlan');
+const statusBadge = document.getElementById('statusBadge');
+const imageDetails = document.getElementById('imageDetails');
+const areaDetails = document.getElementById('areaDetails');
+const planDetails = document.getElementById('planDetails');
+const previewCanvas = document.getElementById('previewCanvas');
+const previewContext = previewCanvas.getContext('2d', { willReadFrequently: true });
 
-const fallbackTransmission = `Welcome to ORPHEUS.\n\nIf you are here, you were not meant to be.\n\nDo not trust everything you see.\nDo not trust everyone speaking.\n\nWe are trying to reach you.`;
-const loreSeedMessages = [
-  'Welcome to ORPHEUS. If you are here, you were not meant to be.',
-  'Do not trust everything you see. Do not trust everyone speaking. We are trying to reach you.',
-  'System rank is not assigned automatically. To receive yours, initiate a private message with the official account.',
-  'No spamming. No harassment. Keep ARG discussion in relevant channels. Do not spoil puzzles without warning.',
-  'Known commands: help, ls, cat [file], unlock [file] [key], override. Some commands may not be listed. Some are not meant to be used.',
-  'ORPHEUS is live now. You are not here by accident. Some systems work. Some are not. Proceed.'
-].join('\n');
+let sourceImage = null;
+let sourceImageUrl = null;
+let drawArea = null;
+let currentPlan = [];
 
-let latestHtml = `<!DOCTYPE html><html><body style="margin:0;background:#020409;color:#d7dde8;font-family:monospace;padding:32px;"><h1>Welcome to ORPHEUS.</h1><p>If you are here, you were not meant to be.</p><p>Do not trust everything you see.<br>Do not trust everyone speaking.</p><p>We are trying to reach you.</p></body></html>`;
-previewFrameEl.srcdoc = latestHtml;
-responseTextEl.textContent = fallbackTransmission;
-
-function updateStatus() {
-  statusBadgeEl.textContent = apiKeyEl.value.trim() ? `Ready • ${textModelEl.value.trim()}` : 'Add OpenAI API key';
+function setStatus(message) {
+  statusBadge.textContent = message;
 }
 
-function loadSettings() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    updateStatus();
+function numericValue(input, fallback, minimum, maximum) {
+  const value = Number(input.value);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function getSettings() {
+  return {
+    spacing: numericValue(spacingInput, 6, 1, 40),
+    maxDots: numericValue(maxDotsInput, 5000, 10, 60000),
+    lightCutoff: numericValue(lightCutoffInput, 245, 0, 255),
+    dotDelay: numericValue(dotDelayInput, 1, 0, 100),
+    mode: drawModeInput.value === 'drag' ? 'drag' : 'click'
+  };
+}
+
+function luminance(red, green, blue) {
+  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+}
+
+function drawEmptyPreview() {
+  previewContext.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  previewContext.fillStyle = '#010409';
+  previewContext.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+  previewContext.fillStyle = '#8b949e';
+  previewContext.font = '22px Segoe UI, Arial';
+  previewContext.fillText('Load an image to begin.', 32, 54);
+}
+
+function drawPreview() {
+  if (!sourceImage) {
+    drawEmptyPreview();
     return;
   }
 
-  try {
-    const settings = JSON.parse(raw);
-    apiKeyEl.value = settings.apiKey || '';
-    textModelEl.value = settings.textModel || 'gpt-4.1-mini';
-    imageModelEl.value = settings.imageModel || 'gpt-image-1';
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-  }
+  previewContext.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  previewContext.fillStyle = '#010409';
+  previewContext.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
 
-  updateStatus();
+  const scale = Math.min(previewCanvas.width / sourceImage.width, previewCanvas.height / sourceImage.height);
+  const width = sourceImage.width * scale;
+  const height = sourceImage.height * scale;
+  const left = (previewCanvas.width - width) / 2;
+  const top = (previewCanvas.height - height) / 2;
+
+  previewContext.imageSmoothingEnabled = false;
+  previewContext.drawImage(sourceImage, left, top, width, height);
+  previewContext.strokeStyle = '#58a6ff';
+  previewContext.lineWidth = 2;
+  previewContext.strokeRect(left, top, width, height);
 }
 
-function saveSettings() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    apiKey: apiKeyEl.value.trim(),
-    textModel: textModelEl.value.trim() || 'gpt-4.1-mini',
-    imageModel: imageModelEl.value.trim() || 'gpt-image-1'
-  }));
-  updateStatus();
-  responseTextEl.textContent = '[Local settings saved in this browser.]';
-}
+function buildDrawingPlan() {
+  if (!sourceImage || !drawArea) return [];
 
-function clearSettings() {
-  localStorage.removeItem(STORAGE_KEY);
-  apiKeyEl.value = '';
-  textModelEl.value = 'gpt-4.1-mini';
-  imageModelEl.value = 'gpt-image-1';
-  updateStatus();
-  responseTextEl.textContent = '[Local API key cleared.]';
-}
+  const settings = getSettings();
+  const sampleWidth = Math.max(1, Math.floor(drawArea.width / settings.spacing));
+  const sampleHeight = Math.max(1, Math.floor(drawArea.height / settings.spacing));
+  const sampler = document.createElement('canvas');
+  sampler.width = sampleWidth;
+  sampler.height = sampleHeight;
+  const samplerContext = sampler.getContext('2d', { willReadFrequently: true });
+  samplerContext.drawImage(sourceImage, 0, 0, sampleWidth, sampleHeight);
 
-function requireApiKey() {
-  if (apiKeyEl.value.trim()) return true;
-  responseTextEl.textContent = 'Signal error: enter your OpenAI API key first. It stays only in your browser storage.';
-  return false;
-}
+  const pixels = samplerContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
+  const plan = [];
 
-function extractHtml(text) {
-  const htmlMatch = text.match(/```html\s*([\s\S]*?)```/i);
-  return htmlMatch ? htmlMatch[1].trim() : null;
-}
+  for (let y = 0; y < sampleHeight; y += 1) {
+    for (let x = 0; x < sampleWidth; x += 1) {
+      const offset = (y * sampleWidth + x) * 4;
+      const alpha = pixels[offset + 3];
+      if (alpha < 32) continue;
 
-async function callOpenAI(pathname, payload) {
-  const response = await fetch(`https://api.openai.com${pathname}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKeyEl.value.trim()}`
-    },
-    body: JSON.stringify(payload)
-  });
+      const red = pixels[offset];
+      const green = pixels[offset + 1];
+      const blue = pixels[offset + 2];
+      const shade = luminance(red, green, blue);
+      if (shade >= settings.lightCutoff) continue;
 
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message || 'OpenAI request failed.');
-  }
-  return data;
-}
-
-async function generateText() {
-  if (!requireApiKey()) return;
-  responseTextEl.textContent = '[Transmission in progress]';
-
-  const modeInstructions = {
-    message: 'Write an in-universe ORPHEUS message, statement, announcement, or transmission.',
-    website: 'Create an ORPHEUS access point website for GitHub Pages and include a runnable single-file HTML document in a fenced ```html block.',
-    game: 'Create an ORPHEUS-themed mini browser game or puzzle using command motifs like help, ls, cat, unlock, and override, and include runnable HTML in a fenced ```html block.',
-    more: 'Generate the best ORPHEUS-style creative output for the request while preserving the unsettling official tone.'
-  };
-
-  try {
-    const data = await callOpenAI('/v1/responses', {
-      model: textModelEl.value.trim() || 'gpt-4.1-mini',
-      input: [
-        {
-          role: 'system',
-          content: `You are ORPHEUS, an OpenAI-powered ARG-styled creative entity. Base your tone, copy, and worldbuilding on the following canonical messages:\n${loreSeedMessages}\nYou help users create messages, static websites for GitHub Pages, mini browser games, app concepts, and visual prompts that fit this eerie system-transmission style. Maintain an immersive, cryptic, official-statement tone while still being useful. When asked to build a website or game, return complete self-contained HTML inside a fenced html block.`
-        },
-        {
-          role: 'user',
-          content: `${modeInstructions[modeEl.value] || modeInstructions.more}\n\nUser request: ${promptEl.value || fallbackTransmission}`
-        }
-      ]
-    });
-
-    const text = data.output_text || fallbackTransmission;
-    responseTextEl.textContent = text;
-    const extractedHtml = extractHtml(text);
-    if (extractedHtml) {
-      latestHtml = extractedHtml;
-      previewFrameEl.srcdoc = latestHtml;
+      plan.push({
+        x: drawArea.x + Math.round((x + 0.5) * settings.spacing),
+        y: drawArea.y + Math.round((y + 0.5) * settings.spacing),
+        delay: settings.dotDelay,
+        mode: settings.mode,
+        shade,
+        color: { red, green, blue, alpha }
+      });
     }
-  } catch (error) {
-    responseTextEl.textContent = `Signal error: ${error.message}`;
   }
+
+  return plan
+    .sort((first, second) => first.shade - second.shade)
+    .slice(0, settings.maxDots)
+    .map(({ x, y, delay, mode, color }) => ({ x, y, delay, mode, color }));
 }
 
-async function generateImage() {
-  if (!requireApiKey()) return;
-  imageResultEl.classList.remove('empty');
-  imageResultEl.textContent = 'Rendering signal…';
+function refreshPlanDetails() {
+  currentPlan = buildDrawingPlan();
+  planDetails.textContent = currentPlan.length
+    ? `${currentPlan.length.toLocaleString()} dots planned, sorted darkest to lightest.`
+    : 'No drawing plan generated.';
+}
 
+async function loadImageFile(file) {
+  if (sourceImageUrl) URL.revokeObjectURL(sourceImageUrl);
+  sourceImageUrl = URL.createObjectURL(file);
+  const image = new Image();
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => reject(new Error('Could not load that image file.'));
+    image.src = sourceImageUrl;
+  });
+  sourceImage = image;
+  imageDetails.textContent = `${file.name} • ${image.width}×${image.height}`;
+  setStatus('Image loaded');
+  drawPreview();
+  refreshPlanDetails();
+}
+
+imageInput.addEventListener('change', async () => {
+  const file = imageInput.files?.[0];
+  if (!file) return;
   try {
-    const data = await callOpenAI('/v1/images/generations', {
-      model: imageModelEl.value.trim() || 'gpt-image-1',
-      prompt: `ORPHEUS ARG signal style for a GitHub-hosted site: ${promptEl.value || 'A dark glitchy terminal access point with cryptic warnings and signal distortion.'}`,
-      size: '1024x1024'
-    });
-
-    const image = data.data?.[0];
-    if (!image?.b64_json) {
-      imageResultEl.textContent = 'No image was returned.';
-      return;
-    }
-
-    imageResultEl.innerHTML = `<div><img alt="Generated by ORPHEUS" src="data:image/png;base64,${image.b64_json}" />${image.revised_prompt ? `<p>${image.revised_prompt}</p>` : ''}</div>`;
+    await loadImageFile(file);
   } catch (error) {
-    imageResultEl.textContent = `Signal error: ${error.message}`;
-  }
-}
-
-function copyOutput() {
-  navigator.clipboard.writeText(responseTextEl.textContent || '').then(() => {
-    statusBadgeEl.textContent = 'Output copied';
-    setTimeout(updateStatus, 1200);
-  });
-}
-
-presetEls.forEach((button) => {
-  button.addEventListener('click', () => {
-    promptEl.value = button.dataset.prompt || '';
-  });
-});
-
-apiKeyEl.addEventListener('input', updateStatus);
-textModelEl.addEventListener('input', updateStatus);
-document.getElementById('saveSettings').addEventListener('click', saveSettings);
-document.getElementById('clearSettings').addEventListener('click', clearSettings);
-document.getElementById('generateText').addEventListener('click', generateText);
-document.getElementById('generateImage').addEventListener('click', generateImage);
-document.getElementById('copyOutput').addEventListener('click', copyOutput);
-document.getElementById('openPreview').addEventListener('click', () => {
-  const previewWindow = window.open();
-  if (previewWindow) {
-    previewWindow.document.write(latestHtml);
-    previewWindow.document.close();
+    setStatus(error.message);
   }
 });
 
-loadSettings();
+for (const input of [spacingInput, maxDotsInput, lightCutoffInput, dotDelayInput, drawModeInput]) {
+  input.addEventListener('input', refreshPlanDetails);
+}
+
+selectAreaButton.addEventListener('click', async () => {
+  if (!window.manualDrawer?.selectDrawArea) {
+    setStatus('Run with Electron to select a real screen area.');
+    return;
+  }
+
+  setStatus('Drag a draw-space box on the overlay');
+  const selectedArea = await window.manualDrawer.selectDrawArea();
+  if (!selectedArea) {
+    setStatus('Area selection cancelled');
+    return;
+  }
+
+  drawArea = selectedArea;
+  areaDetails.textContent = `x ${drawArea.x}, y ${drawArea.y}, ${drawArea.width}×${drawArea.height}`;
+  setStatus('Draw space selected');
+  refreshPlanDetails();
+});
+
+startDrawingButton.addEventListener('click', async () => {
+  if (!window.manualDrawer?.drawPlan) {
+    setStatus('Run with Electron to control the mouse.');
+    return;
+  }
+
+  currentPlan = buildDrawingPlan();
+  if (!currentPlan.length) {
+    setStatus('Load an image and select a draw space first.');
+    return;
+  }
+
+  setStatus(`Drawing ${currentPlan.length.toLocaleString()} dots`);
+  try {
+    const result = await window.manualDrawer.drawPlan({ points: currentPlan });
+    setStatus(`Finished ${result.drawn.toLocaleString()} dots`);
+  } catch (error) {
+    setStatus(error.message);
+  }
+});
+
+exportPlanButton.addEventListener('click', () => {
+  currentPlan = buildDrawingPlan();
+  const blob = new Blob([JSON.stringify({ drawArea, points: currentPlan }, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'manual-image-drawer-plan.json';
+  link.click();
+  URL.revokeObjectURL(link.href);
+});
+
+drawEmptyPreview();
